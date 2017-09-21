@@ -52,12 +52,12 @@ class ThreeLayerConvNet(object):
         C,H,W = input_dim
         self.params['W1'] = np.random.randn(num_filters, C, filter_size, filter_size) * weight_scale
         self.params['b1'] = np.zeros(num_filters)
-        self.params['W2'] = np.random.randn((H/2)*(W/2)*filter_size,hidden_dim) * weight_scale
+        self.params['W2'] = np.random.randn((H/2)*(W/2)*num_filters,hidden_dim) * weight_scale
         self.params['b2'] = np.zeros(hidden_dim)
         self.params['W3'] = np.random.randn(hidden_dim, num_classes) * weight_scale
         self.params['b3'] = np.zeros(num_classes)
         ############################################################################
-        #                             END OF YOUR CODE                             #
+        #                             END OF YOUR CODE                               #
         ############################################################################
 
         for k, v in self.params.items():
@@ -106,14 +106,19 @@ class ThreeLayerConvNet(object):
         # for self.params[k]. Don't forget to add L2 regularization!               #
         ############################################################################
         #pass
+
+        # conv - relu - 2x2 max pool - affine - relu - affine - softmax
         loss, dscores = softmax_loss(scores, y)
         loss += 0.5 * self.reg * (np.sum(W1*W1) + np.sum(W2*W2) + np.sum(W3*W3))
         dhidden_out, dW3, db3 = affine_backward(dscores, cache_scores)
         dconv_relu_pool_out, dW2, db2 = affine_relu_backward(dhidden_out, cache_hidden)
         dX, dW1, db1 = conv_relu_pool_backward(dconv_relu_pool_out, cache_conv)
-        grads['W1'], grads['b1'] = W1, b1
-        grads['W2'], grads['b2'] = W2, b2
-        grads['W3'], grads['b3'] = W3, b3
+        dW1 += self.reg * W1
+        dW2 += self.reg * W2
+        dW3 += self.reg * W3
+        grads['W1'], grads['b1'] = dW1, db1
+        grads['W2'], grads['b2'] = dW2, db2
+        grads['W3'], grads['b3'] = dW3, db3
         ############################################################################
         #                             END OF YOUR CODE                             #
         ############################################################################
