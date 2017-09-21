@@ -470,25 +470,25 @@ def conv_backward_naive(dout, cache):
     db = np.zeros_like(b) # (F,)
 
     # dout (N, F, Hout, Wout)
-    #TODO: Pad the dout p=1, for now. Q: always one pad?
-    # doutpad = np.pad(dout,((0,0),(0,0), (1,1), (1,1)),'constant', constant_values=(0,))
 
-    # backprop into x
-    #TODO: filterIdx !=1 dx is wrong, find the reason.
     xpad = np.pad(x, ((0,0),(0,0),(pad,pad),(pad,pad)), 'constant', constant_values=(0,))
     dxpad = np.zeros_like(xpad)
     for inputIdx in xrange(N):
         for filterIdx in xrange(F):
+            # backprop into b
+            db[filterIdx] += np.sum(dout[inputIdx, filterIdx, ...])
             for dep in xrange(C):
-                #cross-correlation
-                #rotate kernel 180
+
+                # Backprop into x
+                # 1.Rotate kernel 180
                 kernel = w[filterIdx, dep, ...]
                 kernel = np.flip(kernel, 0)
                 kernel = np.flip(kernel, 1)
+                # 2.Cross-correlation( 180(w), dout_with_stride_pad )
                 for row in xrange(H+2*pad):
                     for col in xrange(W+2*pad):
                         kernel_h, kernel_w = kernel.shape
-                        # Need to fillup stride with zeros, so dout is the same size as stride=1
+                        # 2.1 Need to fillup stride with zeros, so dout is the same size as stride=1
                         dout_one = dout[inputIdx, filterIdx]
                         h_after_stride = (dout_one.shape[0]-1)*stride + 1
                         w_after_stride = (dout_one.shape[1]-1)*stride + 1
@@ -496,45 +496,35 @@ def conv_backward_naive(dout, cache):
                         for i in xrange(dout_one.shape[0]):
                             for j in xrange(dout_one.shape[1]):
                                 doutstride[stride*i, stride*j] = dout_one[i,j]
-                        # Add One Pad. We must add stride first, then pad.
-                        #doutstridepad = np.pad(doutstride, (1,), 'constant', constant_values=(0,))
-                        doutstridepad = np.pad(doutstride, (kernel_h-1,), 'constant', constant_values=(0,))
-                        # print doutstridepad.shape
-                        # print kernel_h,kernel_w
-                        # print row,col
+
+                        # 2.2 Add Pad with size (kernel-1). We must add stride first, then pad.
+                        doutstridepad = np.pad(doutstride, ((kernel_h-1,kernel_h-1), (kernel_w-1,kernel_w-1)), 'constant', constant_values=(0,))
+
+                        # 2.3 Calculate dot
                         dot = kernel * doutstridepad[row:row+kernel_h, col:col+kernel_w]
-                        #dx[inputIdx, dep, row, col] += np.sum(dot)
                         dxpad[inputIdx, dep, row, col] += np.sum(dot)
                 dx[inputIdx,dep,...] = dxpad[inputIdx, dep, pad:-pad, pad:-pad] 
 
-    # backprop into w
-    # must use x after pad
-    xpad = np.pad(x, ((0,0),(0,0),(pad,pad),(pad,pad)), 'constant', constant_values=(0,))
-    for kernelIdx in xrange(F):
-            for dep in xrange(C):
-                for inputIdx in xrange(N):
-                    #cross-correlation no rotate
-                    for row in xrange(HH):
-                        for col in xrange(WW):
-                            # dout need to fillup when stride != 1
-                            dout_one = dout[inputIdx, kernelIdx]
-                            h_after_stride = (dout_one.shape[0]-1)*stride + 1
-                            w_after_stride = (dout_one.shape[1]-1)*stride + 1
-                            doutstride = np.zeros((h_after_stride, w_after_stride))
-                            for i in xrange(dout_one.shape[0]):
-                                for j in xrange(dout_one.shape[1]):
-                                    doutstride[stride*i, stride*j] = dout_one[i,j]
-                            # cross-correlation
-                            dout_h, dout_w = doutstride.shape
-                            x_win = xpad[inputIdx, dep, row:row+dout_h, col:col+dout_w]
-                            dot = x_win * doutstride
-                            dw[kernelIdx, dep, row, col] += np.sum(dot)
+                # Backprop into w
+                # Cross-correlation(x_with_pad, dout_with_stride), No rotate
+                for row in xrange(HH):
+                    for col in xrange(WW):
 
+                        # 1. Fillup dout as like stride == 1
+                        dout_one = dout[inputIdx, filterIdx]
+                        h_after_stride = (dout_one.shape[0]-1)*stride + 1
+                        w_after_stride = (dout_one.shape[1]-1)*stride + 1
+                        doutstride = np.zeros((h_after_stride, w_after_stride))
+                        for i in xrange(dout_one.shape[0]):
+                            for j in xrange(dout_one.shape[1]):
+                                doutstride[stride*i, stride*j] = dout_one[i,j]
+                        # 2. Get x_with_pad
+                        dout_h, dout_w = doutstride.shape
+                        x_win = xpad[inputIdx, dep, row:row+dout_h, col:col+dout_w]
 
-    # backprop into b
-    for inputIdx in xrange(N):
-        for kernelIdx in xrange(F):
-            db[kernelIdx] += np.sum(dout[inputIdx, kernelIdx, ...])
+                        # 3. Calculate dot
+                        dot = x_win * doutstride
+                        dw[filterIdx, dep, row, col] += np.sum(dot)
 
     ###########################################################################
     #                             END OF YOUR CODE                            #
