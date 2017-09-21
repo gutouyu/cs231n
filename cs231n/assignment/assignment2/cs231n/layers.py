@@ -551,7 +551,18 @@ def max_pool_forward_naive(x, pool_param):
     ###########################################################################
     # TODO: Implement the max pooling forward pass                            #
     ###########################################################################
-    pass
+    #pass
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    N,C,H,W = x.shape
+    # out (N, C, Hout, Wout) Hout = 1 + (H-ph)/stride
+    Hout = 1 + (H - pool_height) // stride
+    Wout = 1 + (W - pool_height) // stride
+    out = np.zeros((N,C,Hout,Wout), dtype=x.dtype)
+    for inputIdx in xrange(N):
+        for dep in xrange(C):
+            for row in xrange(Hout):
+                for col in xrange(Wout):
+                    out[inputIdx, dep, row, col] = np.max(x[inputIdx, dep, row*stride:row*stride+pool_height, col*stride:col*stride+pool_width])
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -574,7 +585,25 @@ def max_pool_backward_naive(dout, cache):
     ###########################################################################
     # TODO: Implement the max pooling backward pass                           #
     ###########################################################################
-    pass
+    #pass
+    x, pool_param = cache
+    pool_height, pool_width, stride = pool_param['pool_height'], pool_param['pool_width'], pool_param['stride']
+    N,C,H,W = x.shape
+    _,_,Hout,Wout = dout.shape
+    # 0. Init dx with zeros
+    dx = np.zeros_like(x)
+    for inputIdx in xrange(N):
+        for dep in xrange(C):
+            for row in xrange(Hout):
+                for col in xrange(Wout):
+                    # 1. Get Window as big as pool_window. And get the maximum idx
+                    maxIdx = np.argmax(x[inputIdx,dep, row*stride:row*stride+pool_height, col*stride:col*stride+pool_width])
+                    # 2. Calculate the realtive position of the maximum in the x-pool-window
+                    relative_row = maxIdx // pool_width
+                    relative_col = maxIdx % pool_width
+                    # 3. Fill the dx with 1 * delta, just pass the gradient to the maximum
+                    dx[inputIdx, dep, row*stride+relative_row, col*stride+relative_col] += 1 * dout[inputIdx, dep, row, col]
+
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
