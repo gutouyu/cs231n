@@ -641,7 +641,13 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    #pass
+    out = np.zeros_like(x)
+    cache = np.zeros((x.shape[0], x.shape[1]), dtype=tuple)
+    for inputIdx in xrange(x.shape[0]):
+        for dep in xrange(x.shape[1]):
+            out[inputIdx, dep,...], cache_one = batchnorm_forward(x[inputIdx, dep, ...], gamma[dep], beta[dep], bn_param)
+            cache[inputIdx, dep] = cache_one
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -671,7 +677,16 @@ def spatial_batchnorm_backward(dout, cache):
     # version of batch normalization defined above. Your implementation should#
     # be very short; ours is less than five lines.                            #
     ###########################################################################
-    pass
+    #pass
+    dx = np.zeros_like(dout)
+    dgamma = np.zeros(dout.shape[1])
+    dbeta = np.zeros(dout.shape[1])
+    for inputIdx in xrange(dout.shape[0]):
+        for dep in xrange(dout.shape[1]):
+            _dx, _dgamma, _debta = batchnorm_backward(dout[inputIdx, dep], cache[inputIdx, dep])
+            dx[inputIdx,dep] += _dx
+            dgamma[dep] += np.sum(_dgamma)
+            dbeta[dep] += np.sum(_debta)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
