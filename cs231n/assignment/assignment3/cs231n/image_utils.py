@@ -1,4 +1,4 @@
-import urllib, os, tempfile
+import urllib2, os, tempfile
 
 import numpy as np
 from scipy.misc import imread
@@ -85,14 +85,14 @@ def image_from_url(url):
   We write the image to a temporary file then read it back. Kinda gross.
   """
   try:
-    f = urllib.urlopen(url)
+    f = urllib2.urlopen(url)
     _, fname = tempfile.mkstemp()
     with open(fname, 'wb') as ff:
       ff.write(f.read())
     img = imread(fname)
     os.remove(fname)
     return img
-  except urllib.URLError as e:
+  except urllib2.URLError as e:
     print 'URL Error: ', e.reason, url
-  except urllib.HTTPError as e:
+  except urllib2.HTTPError as e:
     print 'HTTP Error: ', e.code, url

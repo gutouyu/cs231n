@@ -111,7 +111,17 @@ def rnn_forward(x, h0, Wx, Wh, b):
   # input data. You should use the rnn_step_forward function that you defined  #
   # above.                                                                     #
   ##############################################################################
-  pass
+  #pass
+  N,T,D = x.shape
+  H = h0.shape[1]
+  h_timestep = h0
+  cache = []
+  h = np.zeros((N,T,H), dtype=h0.dtype)
+  for timestep in xrange(T):
+      h_timestep, cache_timestep = rnn_step_forward(x[:,timestep,:], h_timestep, Wx, Wh, b)
+      cache.append(cache_timestep)
+      h[:,timestep,:] = h_timestep
+  cache = (cache, D)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -138,7 +148,19 @@ def rnn_backward(dh, cache):
   # sequence of data. You should use the rnn_step_backward function that you   #
   # defined above.                                                             #
   ##############################################################################
-  pass
+  #pass
+  N,T,H = dh.shape
+  cache_T, D = cache
+  dprev_h = np.zeros((N,H))
+  dnext_h = np.zeros((N,H))
+  dx, dh0, dWx, dWh, db = np.zeros((N,T,D)), np.zeros((N,H)), np.zeros((D,H)), np.zeros((H,H)), np.zeros((H,))
+  for timestep in range(T)[::-1]:
+    dnext_h = dh[:, timestep, :] + dprev_h
+    dx[:, timestep, :], dprev_h, dWx_t, dWh_t, db_t = rnn_step_backward(dnext_h, cache_T[timestep])
+    dWx += dWx_t
+    dWh += dWh_t
+    db  += db_t
+  dh0 = dprev_h
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
