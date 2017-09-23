@@ -642,12 +642,18 @@ def spatial_batchnorm_forward(x, gamma, beta, bn_param):
     # be very short; ours is less than five lines.                            #
     ###########################################################################
     #pass
-    out = np.zeros_like(x)
-    cache = np.zeros((x.shape[0], x.shape[1]), dtype=tuple)
-    for inputIdx in xrange(x.shape[0]):
-        for dep in xrange(x.shape[1]):
-            out[inputIdx, dep,...], cache_one = batchnorm_forward(x[inputIdx, dep, ...], gamma[dep], beta[dep], bn_param)
-            cache[inputIdx, dep] = cache_one
+    # 1. naive implement
+    # out = np.zeros_like(x)
+    # cache = np.zeros((x.shape[0], x.shape[1]), dtype=tuple)
+    # for inputIdx in xrange(x.shape[0]):
+    #     for dep in xrange(x.shape[1]):
+    #         out[inputIdx, dep,...], cache_one = batchnorm_forward(x[inputIdx, dep, ...], gamma[dep], beta[dep], bn_param)
+    #         cache[inputIdx, dep] = cache_one
+
+    # 2. vector implement
+    N, C, H, W = x.shape
+    out_tmp, cache = batchnorm_forward(x.transpose(0,3,2,1).reshape((N*W*H, C)), gamma, beta, bn_param)
+    out = out_tmp.reshape((N, W, H, C)).transpose(0,3,2,1)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -678,15 +684,22 @@ def spatial_batchnorm_backward(dout, cache):
     # be very short; ours is less than five lines.                            #
     ###########################################################################
     #pass
-    dx = np.zeros_like(dout)
-    dgamma = np.zeros(dout.shape[1])
-    dbeta = np.zeros(dout.shape[1])
-    for inputIdx in xrange(dout.shape[0]):
-        for dep in xrange(dout.shape[1]):
-            _dx, _dgamma, _debta = batchnorm_backward(dout[inputIdx, dep], cache[inputIdx, dep])
-            dx[inputIdx,dep] += _dx
-            dgamma[dep] += np.sum(_dgamma)
-            dbeta[dep] += np.sum(_debta)
+
+    # 1. naive implement
+    # dx = np.zeros_like(dout)
+    # dgamma = np.zeros(dout.shape[1])
+    # dbeta = np.zeros(dout.shape[1])
+    # for inputIdx in xrange(dout.shape[0]):
+    #     for dep in xrange(dout.shape[1]):
+    #         _dx, _dgamma, _debta = batchnorm_backward(dout[inputIdx, dep], cache[inputIdx, dep])
+    #         dx[inputIdx,dep] += _dx
+    #         dgamma[dep] += np.sum(_dgamma)
+    #         dbeta[dep] += np.sum(_debta)
+
+    # 2. vector implement
+    N, C, H, W = dout.shape
+    dx_tmp, dgamma, dbeta = batchnorm_backward(dout.transpose(0,3,2,1).reshape((N*W*H,C)), cache)
+    dx = dx_tmp.reshape((N,W,H,C)).transpose(0,3,2,1)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
