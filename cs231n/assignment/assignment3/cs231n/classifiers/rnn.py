@@ -240,7 +240,33 @@ class CaptioningRNN(object):
     # functions; you'll need to call rnn_step_forward or lstm_step_forward in #
     # a loop.                                                                 #
     ###########################################################################
-    pass
+    #pass
+
+    # Get init hidden state
+    h0 = features.dot(W_proj) + b_proj #(N,H)
+    prev_h = h0
+
+    # First input word    
+    inputWord = self._start * np.ones((N,1))
+
+    for timestep in xrange(max_length):
+        # Word Embed
+        input_embed,_ = word_embedding_forward(inputWord, W_embed)
+
+        # RNN step forward for one timestep
+        next_h,_ = rnn_step_forward(input_embed.reshape((N*1,-1)), prev_h, Wx, Wh, b)
+
+        # Compute scores
+        scores,_ = temporal_affine_forward(next_h.reshape((N,1,-1)), W_vocab, b_vocab)
+        scores = scores.reshape((N*1,-1))
+        predWordIdx = np.argmax(scores, axis=1)
+
+        # Update the captions
+        captions[:, timestep] = predWordIdx
+
+        # update prev_h, inputWord for the next loop
+        prev_h = next_h
+        inputWord = predWordIdx.reshape((N,1))
     ############################################################################
     #                             END OF YOUR CODE                             #
     ############################################################################

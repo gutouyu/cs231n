@@ -194,7 +194,7 @@ def word_embedding_forward(x, W):
   words = np.zeros((N,T,V), dtype=x.dtype)
   for inputIdx in xrange(N):
     for timestep in xrange(T):
-      words[inputIdx,timestep, x[inputIdx,timestep]] = 1.0
+      words[inputIdx,timestep, x[inputIdx,timestep].astype(int)] = 1.0
   out = words.dot(W)
 
   # 1. method one
