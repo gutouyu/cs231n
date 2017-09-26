@@ -142,13 +142,14 @@ class CaptioningRNN(object):
     # 2. Word Embeding: captions_in(N,T-1) * W_embed(V, word_dim)
     wordEmbed_in, wordEmbed_cache = word_embedding_forward(captions_in, W_embed) # (N, T-1, W)
 
-    # 3. RNN LSTM
+    # 3. RNN/LSTM
     hidden_states = None
     if self.cell_type == 'rnn':
         hidden_states, rnn_cache = rnn_forward(wordEmbed_in, h0, Wx, Wh, b)
+    elif self.cell_type == 'lstm':
+        hidden_states, lstm_cache = lstm_forward(wordEmbed_in, h0, Wx, Wh, b)
     else:
-        #TODO: lstm
-        pass
+        raise ValueError('Unknowed cell_type, %s' % self.cell_type)
 
     # 4. Compute scores
     captions_pred, captions_pred_cache = temporal_affine_forward(hidden_states, W_vocab, b_vocab) #(N,T-1,V)
@@ -161,7 +162,12 @@ class CaptioningRNN(object):
     dhidden_states, dW_vocab, db_vocab = temporal_affine_backward(dcaptions_pred, captions_pred_cache)
 
     # (Wx, Wh, b) 
-    dwordEmbed_in, dh0, dWx, dWh, db = rnn_backward(dhidden_states, rnn_cache)
+    if self.cell_type == 'rnn':
+        dwordEmbed_in, dh0, dWx, dWh, db = rnn_backward(dhidden_states, rnn_cache)
+    elif self.cell_type == 'lstm':
+        dwordEmbed_in, dh0, dWx, dWh, db = lstm_backward(dhidden_states, lstm_cache)
+    else:
+        raise ValueError('Unknowed cell_type, %s' % self.cell_type)
 
     # (W_embed)
     dW_embed = word_embedding_backward(dwordEmbed_in, wordEmbed_cache)
@@ -249,12 +255,20 @@ class CaptioningRNN(object):
     # First input word    
     inputWord = self._start * np.ones((N,1))
 
+    # Init lstm cell to zeros.
+    prev_c = np.zeros_like(h0)
+
     for timestep in xrange(max_length):
         # Word Embed
         input_embed,_ = word_embedding_forward(inputWord, W_embed)
 
-        # RNN step forward for one timestep
-        next_h,_ = rnn_step_forward(input_embed.reshape((N*1,-1)), prev_h, Wx, Wh, b)
+        # RNN/LSTM step forward for one timestep
+        if self.cell_type == 'rnn':
+            next_h,_ = rnn_step_forward(input_embed.reshape((N*1,-1)), prev_h, Wx, Wh, b)
+        elif self.cell_type == 'lstm':
+            next_h,next_c,_ = lstm_step_forward(input_embed.reshape((N*1,-1)), prev_h,prev_c, Wx, Wh, b)
+        else:
+            raise ValueError('Unknowed cell_type, %s' % self.cell_type)
 
         # Compute scores
         scores,_ = temporal_affine_forward(next_h.reshape((N,1,-1)), W_vocab, b_vocab)
@@ -264,8 +278,9 @@ class CaptioningRNN(object):
         # Update the captions
         captions[:, timestep] = predWordIdx
 
-        # update prev_h, inputWord for the next loop
+        # update prev_h, prev_c, inputWord for the next loop
         prev_h = next_h
+        prev_c = next_c
         inputWord = predWordIdx.reshape((N,1))
     ############################################################################
     #                             END OF YOUR CODE                             #

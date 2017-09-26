@@ -336,13 +336,6 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
   next_c, prev_c,prev_h, z_i, z_f, z_o, z_g, a_i, a_f, a_o, a_g, a, x, Wx, Wh = cache
   H = dnext_h.shape[1]
 
-  # H = prev_h.shape[1]
-  # a = x.dot(Wx) + prev_h.dot(Wh) + b
-  # a_i, a_f, a_o, a_g = a[:,0:H], a[:,H:2*H], a[:, 2*H:3*H], a[:, 3*H:4*H]
-  # z_i, z_f, z_o, z_g = sigmoid(a_i), sigmoid(a_f), sigmoid(a_o), np.tanh(a_g)
-  # next_c = z_f * prev_c + z_i * z_g
-  # next_h = z_o * np.tanh(next_c)
-
   # next_h = z_o * np.tanh(next_c)
   dz_o = dnext_h * np.tanh(next_c)
   dnext_c = dnext_c + dnext_h * z_o * (1 - np.tanh(next_c)**2)
@@ -365,7 +358,6 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
   da[:,H:2*H] = da_f
   da[:,2*H:3*H] = da_o
   da[:,3*H:4*H] = da_g
-
 
   # a = x.dot(Wx) + prev_h.dot(Wh) + b
   dx = da.dot(Wx.T)
@@ -408,7 +400,21 @@ def lstm_forward(x, h0, Wx, Wh, b):
   # TODO: Implement the forward pass for an LSTM over an entire timeseries.   #
   # You should use the lstm_step_forward function that you just defined.      #
   #############################################################################
-  pass
+  #pass
+  N,T,D = x.shape
+  H = h0.shape[1]
+  cache = []
+
+  h = np.zeros((N,T,H))
+  next_h = h0
+  # Very Important. next_c init to zeros.
+  next_c = np.zeros_like(h0)
+  
+  for timestep in xrange(T):
+    next_h, next_c, cache_t = lstm_step_forward(x[:,timestep,:], next_h, next_c, Wx, Wh, b)
+    h[:,timestep,:] = next_h
+    cache.append(cache_t)
+  cache = (cache, D)
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -436,7 +442,27 @@ def lstm_backward(dh, cache):
   # TODO: Implement the backward pass for an LSTM over an entire timeseries.  #
   # You should use the lstm_step_backward function that you just defined.     #
   #############################################################################
-  pass
+  #pass
+  N,T,H = dh.shape
+  cache_T, D = cache
+
+  dx = np.zeros((N, T, D))
+  dWx = np.zeros((D, 4*H))
+  dWh = np.zeros((H, 4*H))
+  db = np.zeros((4*H,))
+
+  dnext_h = 0
+  # Very important. dnext_c all init to zeros represent there is no gradient flow to the last dnext_c.
+  # Don't worry, dnext_h will flow some gradients to it.
+  dnext_c = np.zeros((N,H))
+
+  for timestep in range(T)[::-1]:
+    dnext_h = dnext_h + dh[:,timestep,:]
+    dx[:,timestep,:], dnext_h, dnext_c, dWx_t, dWh_t, db_t = lstm_step_backward(dnext_h, dnext_c, cache_T[timestep])
+    dWx += dWx_t
+    dWh += dWh_t
+    db  += db_t
+  dh0 = dnext_h
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
