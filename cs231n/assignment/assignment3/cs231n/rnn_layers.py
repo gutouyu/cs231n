@@ -287,7 +287,19 @@ def lstm_step_forward(x, prev_h, prev_c, Wx, Wh, b):
   # TODO: Implement the forward pass for a single timestep of an LSTM.        #
   # You may want to use the numerically stable sigmoid implementation above.  #
   #############################################################################
-  pass
+  #pass
+  H = prev_h.shape[1]
+
+  a = x.dot(Wx) + prev_h.dot(Wh) + b
+
+  a_i, a_f, a_o, a_g = a[:,0:H], a[:,H:2*H], a[:, 2*H:3*H], a[:, 3*H:4*H]
+  z_i, z_f, z_o, z_g = sigmoid(a_i), sigmoid(a_f), sigmoid(a_o), np.tanh(a_g)
+
+  next_c = z_f * prev_c + z_i * z_g
+
+  next_h = z_o * np.tanh(next_c)
+
+  cache = next_c, prev_c,prev_h, z_i, z_f, z_o, z_g, a_i, a_f, a_o, a_g, a, x, Wx, Wh 
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
@@ -319,7 +331,49 @@ def lstm_step_backward(dnext_h, dnext_c, cache):
   # HINT: For sigmoid and tanh you can compute local derivatives in terms of  #
   # the output value from the nonlinearity.                                   #
   #############################################################################
-  pass
+  #pass
+
+  next_c, prev_c,prev_h, z_i, z_f, z_o, z_g, a_i, a_f, a_o, a_g, a, x, Wx, Wh = cache
+  H = dnext_h.shape[1]
+
+  # H = prev_h.shape[1]
+  # a = x.dot(Wx) + prev_h.dot(Wh) + b
+  # a_i, a_f, a_o, a_g = a[:,0:H], a[:,H:2*H], a[:, 2*H:3*H], a[:, 3*H:4*H]
+  # z_i, z_f, z_o, z_g = sigmoid(a_i), sigmoid(a_f), sigmoid(a_o), np.tanh(a_g)
+  # next_c = z_f * prev_c + z_i * z_g
+  # next_h = z_o * np.tanh(next_c)
+
+  # next_h = z_o * np.tanh(next_c)
+  dz_o = dnext_h * np.tanh(next_c)
+  dnext_c = dnext_c + dnext_h * z_o * (1 - np.tanh(next_c)**2)
+
+  # next_c = z_f * prev_c + z_i * z_g
+  dz_f = prev_c * dnext_c
+  dprev_c = z_f * dnext_c
+  dz_i = z_g * dnext_c
+  dz_g = z_i * dnext_c
+
+  # z_i, z_f, z_o, z_g = sigmoid(a_i), sigmoid(a_f), sigmoid(a_o), np.tanh(a_g)
+  da_i = dz_i * z_i * (1 - z_i)
+  da_f = dz_f * z_f * (1 - z_f)
+  da_o = dz_o * z_o * (1 - z_o)
+  da_g = dz_g * (1 - z_g**2)
+
+  # a_i, a_f, a_o, a_g = a[:,0:H], a[:,H:2*H], a[:, 2*H:3*H], a[:, 3*H:4*H]
+  da = np.zeros_like(a)
+  da[:, 0:H] = da_i
+  da[:,H:2*H] = da_f
+  da[:,2*H:3*H] = da_o
+  da[:,3*H:4*H] = da_g
+
+
+  # a = x.dot(Wx) + prev_h.dot(Wh) + b
+  dx = da.dot(Wx.T)
+  dWx = x.T.dot(da)
+  dprev_h = da.dot(Wh.T)
+  dWh = prev_h.T.dot(da)
+  db = np.sum(da, axis=0)
+
   ##############################################################################
   #                               END OF YOUR CODE                             #
   ##############################################################################
